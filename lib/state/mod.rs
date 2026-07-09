@@ -358,7 +358,14 @@ impl State {
         let () = Self::validate_utxo_hashes(transaction)?;
         let mut value_in = bitcoin::Amount::ZERO;
         let mut value_out = bitcoin::Amount::ZERO;
-        for utxo in &transaction.spent_utxos {
+        for (outpoint, _, utxo) in transaction.inputs() {
+            // a withdrawal output is committed to a bundle and can only be
+            // spent by the bundle, never by a transaction
+            if utxo.content.is_withdrawal() {
+                return Err(Error::SpendWithdrawalOutput {
+                    outpoint: *outpoint,
+                });
+            }
             value_in = value_in
                 .checked_add(utxo.get_value())
                 .ok_or(AmountOverflowError)?;
@@ -591,39 +598,44 @@ impl Watchable<()> for State {
 
 #[cfg(test)]
 mod test {
+    use bitcoin::hashes::Hash as _;
+
     use crate::{
         state::State,
         types::{
-            Address, InPoint, OutPoint, OutPointKey, Output, OutputContent,
-            SpentOutput,
+            Address, FilledTransaction, InPoint, OutPoint, OutPointKey, Output,
+            OutputContent, PointedOutputRef, SpentOutput, Transaction, hash,
         },
     };
 
-    pub fn temp_env_path(
-        test_name: &str,
-    ) -> anyhow::Result<std::path::PathBuf> {
-        let mut path = std::env::temp_dir();
+    fn temp_dir(test_name: &str) -> anyhow::Result<temp_dir::TempDir> {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_nanos();
-        path.push(format!("photon-{test_name}-{}-{nanos}", std::process::id()));
-        Ok(path)
-    }
-
-    // open a fresh state-backed env in a unique temp dir
-    pub fn temp_env(test_name: &str) -> anyhow::Result<sneed::Env> {
-        let path = temp_env_path(test_name)?;
-        std::fs::create_dir_all(&path)?;
-        let mut opts = heed::EnvOpenOptions::new();
-        opts.map_size(64 * 1024 * 1024).max_dbs(State::NUM_DBS);
-        let res = unsafe { sneed::Env::open(&opts, &path) }?;
+        let res = temp_dir::TempDir::with_prefix(format!(
+            "photon-{test_name}-{}-{nanos}",
+            std::process::id()
+        ))?;
         Ok(res)
     }
 
-    pub fn fresh_state(test_name: &str) -> anyhow::Result<(sneed::Env, State)> {
-        let env = temp_env(test_name)?;
+    // open a fresh state-backed env in a unique temp dir
+    pub fn temp_env(
+        test_name: &str,
+    ) -> anyhow::Result<(temp_dir::TempDir, sneed::Env)> {
+        let temp_dir = temp_dir(test_name)?;
+        let mut opts = heed::EnvOpenOptions::new();
+        opts.map_size(64 * 1024 * 1024).max_dbs(State::NUM_DBS);
+        let env = unsafe { sneed::Env::open(&opts, temp_dir.path()) }?;
+        Ok((temp_dir, env))
+    }
+
+    pub fn fresh_state(
+        test_name: &str,
+    ) -> anyhow::Result<(temp_dir::TempDir, sneed::Env, State)> {
+        let (temp_dir, env) = temp_env(test_name)?;
         let state = State::new(&env)?;
-        Ok((env, state))
+        Ok((temp_dir, env, state))
     }
 
     /// Create a value output
@@ -635,12 +647,52 @@ mod test {
     }
 
     #[test]
+    fn cannot_spend_withdrawal_output() -> anyhow::Result<()> {
+        let (_temp_dir, _env, state) =
+            fresh_state("cannot-spend-withdrawal-output")?;
+        let main_address = {
+            let pkh = bitcoin::PubkeyHash::hash(b"test pubkey");
+            bitcoin::Address::p2pkh(pkh, bitcoin::NetworkKind::Test)
+                .into_unchecked()
+        };
+        let withdrawal = Output {
+            address: Address::ALL_ZEROS,
+            content: OutputContent::Withdrawal {
+                value: bitcoin::Amount::from_sat(1000),
+                main_fee: bitcoin::Amount::from_sat(300),
+                main_address,
+            },
+        };
+        let outpoint = OutPoint::Regular {
+            txid: [1; 32].into(),
+            vout: 0,
+        };
+        let utxo_hash = hash(&PointedOutputRef {
+            outpoint,
+            output: &withdrawal,
+        });
+        let tx = FilledTransaction {
+            transaction: Transaction {
+                inputs: vec![(outpoint, utxo_hash)],
+                outputs: vec![value_output(Address::ALL_ZEROS, 1300)],
+                ..Default::default()
+            },
+            spent_utxos: vec![withdrawal],
+        };
+        assert!(matches!(
+            state.validate_filled_transaction(&tx),
+            Err(crate::state::Error::SpendWithdrawalOutput { .. })
+        ));
+        Ok(())
+    }
+
+    #[test]
     fn sidechain_wealth() -> anyhow::Result<()> {
         use std::str::FromStr;
 
         use bitcoin::hashes::Hash as _;
 
-        let (env, state) = fresh_state("sidechain-wealth")?;
+        let (_temp_dir, env, state) = fresh_state("sidechain-wealth")?;
         {
             let mut rwtxn = env.write_txn()?;
 
