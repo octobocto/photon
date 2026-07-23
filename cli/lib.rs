@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{marker::PhantomData, net::SocketAddr, time::Duration};
 
 use clap::{Parser, Subcommand};
 use http::HeaderMap;
@@ -7,6 +7,20 @@ use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder};
 use photon::types::{Address, Txid};
 use photon_app_rpc_api::RpcClient;
 use tracing_subscriber::layer::SubscriberExt as _;
+
+struct JsonParser<T>(PhantomData<T>);
+
+impl<T> JsonParser<T> {
+    fn parse(
+        s: &str,
+    ) -> Result<T, serde_path_to_error::Error<serde_json::Error>>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let mut deserializer = serde_json::Deserializer::from_str(s);
+        serde_path_to_error::deserialize(&mut deserializer)
+    }
+}
 
 #[derive(Clone, Debug, Subcommand)]
 #[command(arg_required_else_help(true))]
@@ -22,6 +36,25 @@ pub enum Command {
         value_sats: u64,
         #[arg(long)]
         fee_sats: u64,
+    },
+    /// Create a tx that transfers funds to the specified address
+    CreateTransfer {
+        dest: Address,
+        #[arg(long)]
+        value_sats: u64,
+        #[arg(long)]
+        fee_sats: u64,
+    },
+    /// Creates a tx that initiates a withdrawal to the specified mainchain
+    /// address
+    CreateWithdrawal {
+        mainchain_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
+        #[arg(long)]
+        amount_sats: u64,
+        #[arg(long)]
+        fee_sats: u64,
+        #[arg(long)]
+        mainchain_fee_sats: u64,
     },
     /// Format a deposit address
     FormatDepositAddress { address: Address },
@@ -74,26 +107,23 @@ pub enum Command {
     SetSeedFromMnemonic { mnemonic: String },
     /// Get total sidechain wealth
     SidechainWealth,
+    /// Sign a transaction, and optionally broadcast it.
+    SignTransaction {
+        #[arg(value_parser = JsonParser::<photon::types::Transaction>::parse)]
+        transaction: photon::types::Transaction,
+        #[arg(default_value_t = false)]
+        broadcast: bool,
+    },
+    /// Verify and broadcast a transaction
+    SubmitTransaction {
+        #[arg(
+            value_parser =
+                JsonParser::<photon::types::AuthorizedTransaction>::parse
+        )]
+        transaction: photon::types::AuthorizedTransaction,
+    },
     /// Stop the node
     Stop,
-    /// Transfer funds to the specified address
-    Transfer {
-        dest: Address,
-        #[arg(long)]
-        value_sats: u64,
-        #[arg(long)]
-        fee_sats: u64,
-    },
-    /// Initiate a withdrawal to the specified mainchain address
-    Withdraw {
-        mainchain_address: bitcoin::Address<bitcoin::address::NetworkUnchecked>,
-        #[arg(long)]
-        amount_sats: u64,
-        #[arg(long)]
-        fee_sats: u64,
-        #[arg(long)]
-        mainchain_fee_sats: u64,
-    },
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -136,6 +166,32 @@ where
         } => {
             let txid = rpc_client
                 .create_deposit(address, value_sats, fee_sats)
+                .await?;
+            format!("{txid}")
+        }
+        Command::CreateTransfer {
+            dest,
+            value_sats,
+            fee_sats,
+        } => {
+            let txid = rpc_client
+                .create_transfer(dest, value_sats, fee_sats)
+                .await?;
+            format!("{txid}")
+        }
+        Command::CreateWithdrawal {
+            mainchain_address,
+            amount_sats,
+            fee_sats,
+            mainchain_fee_sats,
+        } => {
+            let txid = rpc_client
+                .create_withdrawal(
+                    mainchain_address,
+                    amount_sats,
+                    fee_sats,
+                    mainchain_fee_sats,
+                )
                 .await?;
             format!("{txid}")
         }
@@ -223,33 +279,22 @@ where
             let sidechain_wealth = rpc_client.sidechain_wealth_sats().await?;
             format!("{sidechain_wealth}")
         }
+        Command::SignTransaction {
+            transaction,
+            broadcast,
+        } => {
+            let authorized = rpc_client
+                .sign_transaction(transaction, Some(broadcast))
+                .await?;
+            serde_json::to_string_pretty(&authorized)?
+        }
+        Command::SubmitTransaction { transaction } => {
+            let txid = rpc_client.submit_transaction(transaction).await?;
+            format!("{txid}")
+        }
         Command::Stop => {
             let () = rpc_client.stop().await?;
             String::default()
-        }
-        Command::Transfer {
-            dest,
-            value_sats,
-            fee_sats,
-        } => {
-            let txid = rpc_client.transfer(dest, value_sats, fee_sats).await?;
-            format!("{txid}")
-        }
-        Command::Withdraw {
-            mainchain_address,
-            amount_sats,
-            fee_sats,
-            mainchain_fee_sats,
-        } => {
-            let txid = rpc_client
-                .withdraw(
-                    mainchain_address,
-                    amount_sats,
-                    fee_sats,
-                    mainchain_fee_sats,
-                )
-                .await?;
-            format!("{txid}")
         }
     })
 }
