@@ -34,13 +34,13 @@ impl std::fmt::Debug for Signature {
 
 impl std::fmt::LowerHex for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode(self.0))
+        f.write_str(&const_hex::encode(self.0))
     }
 }
 
 impl std::fmt::UpperHex for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode_upper(self.0))
+        f.write_str(&const_hex::encode_upper(self.0))
     }
 }
 
@@ -95,7 +95,7 @@ impl Eq for VerifyingKey {}
 
 impl std::fmt::LowerHex for VerifyingKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode(self.to_bytes()))
+        f.write_str(&const_hex::encode(self.to_bytes()))
     }
 }
 
@@ -120,7 +120,7 @@ impl Serialize for VerifyingKey {
 
 impl std::fmt::UpperHex for VerifyingKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode_upper(self.to_bytes()))
+        f.write_str(&const_hex::encode_upper(self.to_bytes()))
     }
 }
 

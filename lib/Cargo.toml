@@ -21,6 +21,7 @@ blake3 = { workspace = true }
 borsh = { workspace = true }
 byteorder = { workspace = true }
 bytes = { workspace = true }
+const-hex = { workspace = true }
 educe = { workspace = true, features = ["Clone", "Debug"] }
 error-fatality = { workspace = true }
 fallible-iterator = { workspace = true }
@@ -29,7 +30,6 @@ futures = { workspace = true, features = ["alloc"] }
 governor = { workspace = true, features = ["quanta", "std"] }
 hashlink = { workspace = true, features = ["serde_impl"] }
 heed = { workspace = true }
-hex = { workspace = true }
 hybrid-array = { workspace = true, features = ["serde"] }
 jsonrpsee = { workspace = true }
 nonempty = { workspace = true, features = ["serialize"] }
