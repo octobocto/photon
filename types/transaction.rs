@@ -266,7 +266,9 @@ mod test {
 }
 
 /// Reference to a tx input.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize, ToSchema,
+)]
 pub enum InPoint {
     /// Transaction input
     Regular {
@@ -532,10 +534,11 @@ impl GetValue for Output {
     Serialize,
     ToSchema,
 )]
-pub struct PointedOutput {
+pub struct Pointed<Output> {
     pub outpoint: OutPoint,
     pub output: Output,
 }
+pub type PointedOutput = Pointed<Output>;
 
 impl From<&PointedOutput> for UtreexoNodeHash {
     fn from(pointed_output: &PointedOutput) -> Self {
@@ -583,7 +586,7 @@ impl Transaction {
 }
 
 /// Representation of a spent output
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 pub struct SpentOutput {
     pub output: Output,
     pub inpoint: InPoint,

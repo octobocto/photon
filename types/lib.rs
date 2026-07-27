@@ -35,7 +35,7 @@ pub mod transaction;
 pub use transaction::{
     Authorized, AuthorizedTransaction, Content as OutputContent,
     FilledTransaction, GetAddress, GetValue, InPoint, OutPoint, OutPointKey,
-    Output, PointedOutput, PointedOutputRef, SpentOutput, Transaction,
+    Output, Pointed, PointedOutput, PointedOutputRef, SpentOutput, Transaction,
 };
 mod util;
 pub mod wallet;
