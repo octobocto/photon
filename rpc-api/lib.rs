@@ -1,17 +1,13 @@
 //! RPC API
 
-use std::net::SocketAddr;
+use std::{collections::HashSet, net::SocketAddr};
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use l2l_openapi::open_api;
-use photon::{
-    net::Peer,
-    types::{
-        Address, Authorized, BlockHash, MerkleRoot, OutPoint, Output,
-        OutputContent, PointedOutput, Transaction, Txid, WithdrawalBundle,
-        schema as photon_schema,
-    },
-    wallet::Balance,
+use photon_types::{
+    Address, Authorized, BlockHash, MerkleRoot, OutPoint, Output,
+    OutputContent, Pointed, PointedOutput, SpentOutput, Transaction, Txid,
+    WithdrawalBundle, net::Peer, schema as photon_schema, wallet::Balance,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -73,7 +69,7 @@ pub trait Rpc {
     async fn create_withdrawal(
         &self,
         #[open_api_method_arg(schema(
-            PartialSchema = "photon::types::schema::BitcoinAddr"
+            PartialSchema = "photon_types::schema::BitcoinAddr"
         ))]
         mainchain_address: bitcoin::Address<
             bitcoin::address::NetworkUnchecked,
@@ -109,8 +105,8 @@ pub trait Rpc {
     #[method(name = "get_block")]
     async fn get_block(
         &self,
-        block_hash: photon::types::BlockHash,
-    ) -> RpcResult<Option<photon::types::Block>>;
+        block_hash: photon_types::BlockHash,
+    ) -> RpcResult<Option<photon_types::Block>>;
 
     /// Get mainchain blocks that commit to a specified block hash
     #[open_api_method(output_schema(
@@ -119,7 +115,7 @@ pub trait Rpc {
     #[method(name = "get_bmm_inclusions")]
     async fn get_bmm_inclusions(
         &self,
-        block_hash: photon::types::BlockHash,
+        block_hash: photon_types::BlockHash,
     ) -> RpcResult<Vec<bitcoin::BlockHash>>;
 
     /// Get the best mainchain block hash known by Photon
@@ -133,16 +129,23 @@ pub trait Rpc {
 
     /// Get the best sidechain block hash known by Photon
     #[open_api_method(output_schema(
-        PartialSchema = "schema::Optional<photon::types::BlockHash>"
+        PartialSchema = "schema::Optional<photon_types::BlockHash>"
     ))]
     #[method(name = "get_best_sidechain_block_hash")]
     async fn get_best_sidechain_block_hash(
         &self,
-    ) -> RpcResult<Option<photon::types::BlockHash>>;
+    ) -> RpcResult<Option<photon_types::BlockHash>>;
 
     /// Get a new address
     #[method(name = "get_new_address")]
     async fn get_new_address(&self) -> RpcResult<Address>;
+
+    /// Get stxos for addresses
+    #[method(name = "get_stxos")]
+    async fn get_stxos(
+        &self,
+        addresses: HashSet<Address>,
+    ) -> RpcResult<Vec<Pointed<SpentOutput>>>;
 
     /// Get transaction by txid
     #[method(name = "get_transaction")]
@@ -150,6 +153,13 @@ pub trait Rpc {
         &self,
         txid: Txid,
     ) -> RpcResult<Option<GetTransactionResponse>>;
+
+    /// Get utxos for addresses
+    #[method(name = "get_utxos")]
+    async fn get_utxos(
+        &self,
+        addresses: HashSet<Address>,
+    ) -> RpcResult<Vec<PointedOutput>>;
 
     /// Get wallet addresses, sorted by base58 encoding
     #[method(name = "get_wallet_addresses")]

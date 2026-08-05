@@ -1,6 +1,6 @@
 use std::{
+    borrow::BorrowMut,
     collections::{HashMap, HashSet},
-    fmt::Debug,
     net::SocketAddr,
     path::Path,
     sync::Arc,
@@ -9,94 +9,32 @@ use std::{
 use bitcoin::amount::CheckedSum;
 use fallible_iterator::{FallibleIterator, IteratorExt};
 use futures::{Stream, future::BoxFuture};
-use sneed::{DbError, Env, EnvError, RwTxnError, env};
+use sneed::{DbError, Env, EnvError, RwTxnError};
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
 
 use crate::{
-    archive::{self, Archive},
+    archive::Archive,
     mempool::{self, MemPool},
-    net::{self, Net, Peer},
-    state::{self, State},
+    net::Net,
+    state::State,
     types::{
         Accumulator, Address, AmountOverflowError, AmountUnderflowError,
         Authorized, AuthorizedTransaction, BlockHash, BmmResult, Body,
         FilledTransaction, GetValue, Header, Network, OutPoint, OutPointKey,
         Output, SpentOutput, Tip, Transaction, Txid, WithdrawalBundle,
+        net::Peer,
         proto::{self, mainchain},
     },
     util::Watchable,
 };
 
+pub(crate) mod error;
+pub use error::Error;
 mod mainchain_task;
-mod net_task;
-
 use mainchain_task::MainchainTaskHandle;
-
-use self::net_task::NetTaskHandle;
-
-#[derive(Debug, thiserror::Error, transitive::Transitive)]
-#[transitive(from(env::error::ReadTxn, EnvError))]
-pub enum Error {
-    #[error("address parse error")]
-    AddrParse(#[from] std::net::AddrParseError),
-    #[error(transparent)]
-    AmountOverflow(#[from] AmountOverflowError),
-    #[error(transparent)]
-    AmountUnderflow(#[from] AmountUnderflowError),
-    #[error("archive error")]
-    Archive(#[from] archive::Error),
-    #[error("CUSF mainchain proto error")]
-    CusfMainchain(#[from] proto::Error),
-    #[error(transparent)]
-    Db(#[from] DbError),
-    #[error("Database env error")]
-    DbEnv(#[from] EnvError),
-    #[error("Database write error")]
-    DbWrite(#[from] RwTxnError),
-    #[error("I/O error")]
-    Io(#[from] std::io::Error),
-    #[error("error requesting mainchain ancestors")]
-    MainchainAncestors(#[source] mainchain_task::ResponseError),
-    #[error("mempool error")]
-    MemPool(#[from] mempool::Error),
-    #[error("net error")]
-    Net(#[from] Box<net::Error>),
-    #[error("net task error")]
-    NetTask(#[source] Box<net_task::Error>),
-    #[error("No CUSF mainchain wallet client")]
-    NoCusfMainchainWalletClient,
-    #[error("peer info stream closed")]
-    PeerInfoRxClosed,
-    #[error("Receive mainchain task response cancelled")]
-    ReceiveMainchainTaskResponse,
-    #[error("Send mainchain task request failed")]
-    SendMainchainTaskRequest,
-    #[error("state error")]
-    State(#[source] Box<state::Error>),
-    #[error("Utreexo error: {0}")]
-    Utreexo(String),
-    #[error("Verify BMM error")]
-    VerifyBmm(anyhow::Error),
-}
-
-impl From<net::Error> for Error {
-    fn from(err: net::Error) -> Self {
-        Self::Net(Box::new(err))
-    }
-}
-
-impl From<net_task::Error> for Error {
-    fn from(err: net_task::Error) -> Self {
-        Self::NetTask(Box::new(err))
-    }
-}
-
-impl From<state::Error> for Error {
-    fn from(err: state::Error) -> Self {
-        Self::State(Box::new(err))
-    }
-}
+mod net_task;
+use net_task::NetTaskHandle;
 
 #[derive(Clone)]
 pub struct Node<MainchainTransport = Channel> {
@@ -123,6 +61,7 @@ where
         cusf_mainchain_wallet: Option<
             mainchain::WalletClient<MainchainTransport>,
         >,
+        magic_bytes_override: Option<crate::net::peer_message::MagicBytes>,
         network: Network,
         runtime: &tokio::runtime::Runtime,
     ) -> Result<Self, Error>
@@ -181,8 +120,14 @@ where
                 archive.clone(),
                 cusf_mainchain.clone(),
             );
-        let (net, peer_info_rx) =
-            Net::new(&env, archive.clone(), network, state.clone(), bind_addr)?;
+        let (net, peer_info_rx) = Net::new(
+            &env,
+            archive.clone(),
+            magic_bytes_override,
+            network,
+            state.clone(),
+            bind_addr,
+        )?;
 
         let net_task = NetTaskHandle::new(
             runtime,
@@ -243,17 +188,26 @@ where
         Ok(self.state.try_get_tip(&rotxn)?)
     }
 
-    pub fn submit_transaction(
+    /// Regenerate proofs and submit transaction
+    pub fn submit_transaction<Tx>(
         &self,
-        transaction: &AuthorizedTransaction,
-    ) -> Result<(), Error> {
+        mut transaction: Tx,
+    ) -> Result<(), Error>
+    where
+        Tx: BorrowMut<AuthorizedTransaction>,
+    {
         {
             let mut rotxn = self.env.write_txn().map_err(EnvError::from)?;
-            self.state.validate_transaction(&rotxn, transaction)?;
-            self.mempool.put(&mut rotxn, transaction)?;
+            self.state.regenerate_proof(
+                &rotxn,
+                &mut transaction.borrow_mut().transaction,
+            )?;
+            self.state
+                .validate_transaction(&rotxn, transaction.borrow())?;
+            self.mempool.put(&mut rotxn, transaction.borrow())?;
             rotxn.commit().map_err(RwTxnError::from)?;
         }
-        self.net.push_tx(Default::default(), transaction);
+        self.net.push_tx(Default::default(), transaction.borrow());
         Ok(())
     }
 
@@ -294,6 +248,18 @@ where
             }
         }
         Ok(spent)
+    }
+
+    pub fn get_stxos_by_addresses(
+        &self,
+        addresses: &HashSet<Address>,
+    ) -> Result<HashMap<OutPoint, SpentOutput>, Error> {
+        let rotxn = self.env.read_txn()?;
+        let stxos = self
+            .state
+            .get_stxos_by_addresses(&rotxn, addresses)
+            .map_err(DbError::from)?;
+        Ok(stxos)
     }
 
     pub fn get_utxos_by_addresses(

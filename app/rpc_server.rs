@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{collections::HashSet, net::SocketAddr};
 
 use bitcoin::Amount;
 use jsonrpsee::{
@@ -6,10 +6,9 @@ use jsonrpsee::{
     server::Server,
     types::ErrorObject,
 };
-use photon::{
-    net::Peer,
-    types::{Address, PointedOutput, Txid, WithdrawalBundle},
-    wallet::Balance,
+use photon::types::{
+    Address, Pointed, PointedOutput, SpentOutput, Txid, WithdrawalBundle,
+    net::Peer, wallet::Balance,
 };
 use photon_app_rpc_api::{GetTransactionResponse, RpcServer};
 use tower_http::{
@@ -191,6 +190,21 @@ impl RpcServer for RpcServerImpl {
         self.app.wallet.get_new_address().map_err(custom_err)
     }
 
+    async fn get_stxos(
+        &self,
+        addresses: HashSet<Address>,
+    ) -> RpcResult<Vec<Pointed<SpentOutput>>> {
+        let res = self
+            .app
+            .node
+            .get_stxos_by_addresses(&addresses)
+            .map_err(custom_err)?
+            .into_iter()
+            .map(|(outpoint, output)| Pointed { outpoint, output })
+            .collect();
+        Ok(res)
+    }
+
     async fn get_transaction(
         &self,
         txid: Txid,
@@ -201,6 +215,21 @@ impl RpcServer for RpcServerImpl {
             .try_get_transaction(txid)
             .map_err(custom_err)?
             .map(|(tx, block_hash)| GetTransactionResponse { tx, block_hash });
+        Ok(res)
+    }
+
+    async fn get_utxos(
+        &self,
+        addresses: HashSet<Address>,
+    ) -> RpcResult<Vec<PointedOutput>> {
+        let res = self
+            .app
+            .node
+            .get_utxos_by_addresses(&addresses)
+            .map_err(custom_err)?
+            .into_iter()
+            .map(|(outpoint, output)| PointedOutput { outpoint, output })
+            .collect();
         Ok(res)
     }
 
@@ -303,12 +332,12 @@ impl RpcServer for RpcServerImpl {
         transaction: photon::types::Transaction,
         broadcast: Option<bool>,
     ) -> RpcResult<photon::types::AuthorizedTransaction> {
-        let authorized =
+        let mut authorized =
             self.app.wallet.authorize(transaction).map_err(custom_err)?;
         if let Some(true) = broadcast {
             let () = self
                 .app
-                .submit_transaction(&authorized)
+                .submit_transaction(&mut authorized)
                 .map_err(custom_err)?;
         }
         Ok(authorized)
@@ -316,11 +345,11 @@ impl RpcServer for RpcServerImpl {
 
     async fn submit_transaction(
         &self,
-        transaction: photon::types::AuthorizedTransaction,
+        mut transaction: photon::types::AuthorizedTransaction,
     ) -> RpcResult<Txid> {
         let () = self
             .app
-            .submit_transaction(&transaction)
+            .submit_transaction(&mut transaction)
             .map_err(custom_err)?;
         Ok(transaction.transaction.txid())
     }

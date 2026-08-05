@@ -3,11 +3,11 @@ use fips205::traits::{SerDes as _, Signer, Verifier};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{DeserializeAs, IfIsHumanReadable, SerializeAs, serde_as};
-use thiserror::Error;
 use utoipa::ToSchema;
 
-use crate::types::{
+use crate::{
     Address, AuthorizedTransaction, Body, GetAddress, Transaction, Verify,
+    error::{self, Authorization as Error},
 };
 
 const FIPS205_PRE_HASH: fips205::Ph = fips205::Ph::SHAKE256;
@@ -34,13 +34,13 @@ impl std::fmt::Debug for Signature {
 
 impl std::fmt::LowerHex for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode(self.0))
+        f.write_str(&const_hex::encode(self.0))
     }
 }
 
 impl std::fmt::UpperHex for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode_upper(self.0))
+        f.write_str(&const_hex::encode_upper(self.0))
     }
 }
 
@@ -95,7 +95,7 @@ impl Eq for VerifyingKey {}
 
 impl std::fmt::LowerHex for VerifyingKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode(self.to_bytes()))
+        f.write_str(&const_hex::encode(self.to_bytes()))
     }
 }
 
@@ -120,19 +120,9 @@ impl Serialize for VerifyingKey {
 
 impl std::fmt::UpperHex for VerifyingKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&hex::encode_upper(self.to_bytes()))
+        f.write_str(&const_hex::encode_upper(self.to_bytes()))
     }
 }
-
-#[derive(Debug, Error)]
-#[error("fips205 signing error: `{}`", .0)]
-#[repr(transparent)]
-pub struct Fips205SigningError(&'static str);
-
-#[derive(Debug, Error)]
-#[error("failed to decode signing key from bytes: `{}`", .0)]
-#[repr(transparent)]
-pub struct DecodeSigningKeyError(&'static str);
 
 #[repr(transparent)]
 pub struct SigningKey(pub fips205::slh_dsa_shake_256s::PrivateKey);
@@ -159,7 +149,7 @@ impl SigningKey {
         &self,
         rng: &mut R,
         msg: &[u8],
-    ) -> Result<Signature, Fips205SigningError>
+    ) -> Result<Signature, error::Fips205Signing>
     where
         R: rand_core::CryptoRngCore,
     {
@@ -171,13 +161,13 @@ impl SigningKey {
             FIPS205_HEDGED,
         ) {
             Ok(sig) => Ok(Signature(sig)),
-            Err(err) => Err(Fips205SigningError(err)),
+            Err(err) => Err(error::Fips205Signing(err)),
         }
     }
 }
 
 impl TryFrom<&[u8; fips205::slh_dsa_shake_256s::SK_LEN]> for SigningKey {
-    type Error = DecodeSigningKeyError;
+    type Error = error::DecodeSigningKey;
 
     fn try_from(
         sk_bytes: &[u8; fips205::slh_dsa_shake_256s::SK_LEN],
@@ -185,31 +175,9 @@ impl TryFrom<&[u8; fips205::slh_dsa_shake_256s::SK_LEN]> for SigningKey {
         match fips205::slh_dsa_shake_256s::PrivateKey::try_from_bytes(sk_bytes)
         {
             Ok(sk) => Ok(Self(sk)),
-            Err(err) => Err(DecodeSigningKeyError(err)),
+            Err(err) => Err(error::DecodeSigningKey(err)),
         }
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("borsh serialization error")]
-    BorshSerialize(#[from] borsh::io::Error),
-    #[error("invalid signature")]
-    InvalidSignature,
-    #[error("not enough authorizations")]
-    NotEnoughAuthorizations,
-    #[error(transparent)]
-    Signing(#[from] Fips205SigningError),
-    #[error("too many authorizations")]
-    TooManyAuthorizations,
-    #[error(
-        "wrong key for address: address = {address},
-             hash(verifying_key) = {hash_verifying_key}"
-    )]
-    WrongKeyForAddress {
-        address: Address,
-        hash_verifying_key: Address,
-    },
 }
 
 #[derive(

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::BorrowMut, collections::HashMap, sync::Arc};
 
 use fallible_iterator::FallibleIterator as _;
 use futures::{StreamExt, TryFutureExt};
@@ -271,6 +271,7 @@ impl App {
             config.net_addr,
             cusf_mainchain,
             cusf_mainchain_wallet,
+            config.network_magic_override,
             config.network,
             &runtime,
         )?;
@@ -310,10 +311,11 @@ impl App {
         update(self.node.as_ref(), &mut self.utxos.write(), &self.wallet)
     }
 
-    pub fn submit_transaction(
-        &self,
-        tx: &photon::types::AuthorizedTransaction,
-    ) -> Result<(), Error> {
+    /// Regenerate proofs and submit transaction
+    pub fn submit_transaction<Tx>(&self, tx: Tx) -> Result<(), Error>
+    where
+        Tx: BorrowMut<photon::types::AuthorizedTransaction>,
+    {
         self.node.submit_transaction(tx)?;
         let () = self.update()?;
         Ok(())
@@ -321,7 +323,7 @@ impl App {
 
     pub fn sign_and_send(&self, tx: Transaction) -> Result<(), Error> {
         let authorized_transaction = self.wallet.authorize(tx)?;
-        self.submit_transaction(&authorized_transaction)
+        self.submit_transaction(authorized_transaction)
     }
 
     pub async fn get_new_main_address(

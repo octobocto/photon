@@ -26,7 +26,7 @@ use crate::{
     types::{
         AuthorizedTransaction, BlockHash, BmmResult, Header, Tip, VERSION,
     },
-    util::join_set,
+    util::{ErrorChain, join_set},
 };
 
 pub(in crate::net::peer) struct ConnectionTask {
@@ -609,8 +609,8 @@ impl ConnectionTask {
             }
             (_, _) => ResponseMessage::NoBlock { block_hash },
         };
-        let () =
-            Connection::send_response(ctxt.network, response_tx, resp).await?;
+        let () = Connection::send_response(ctxt.magic_bytes, response_tx, resp)
+            .await?;
         Ok(())
     }
 
@@ -662,7 +662,7 @@ impl ConnectionTask {
         match validate_tx_result {
             Err(err) => {
                 Connection::send_response(
-                    ctxt.network,
+                    ctxt.magic_bytes,
                     response_tx,
                     ResponseMessage::TransactionRejected(txid),
                 )
@@ -671,7 +671,7 @@ impl ConnectionTask {
             }
             Ok(_) => {
                 Connection::send_response(
-                    ctxt.network,
+                    ctxt.magic_bytes,
                     response_tx,
                     ResponseMessage::TransactionAccepted(txid),
                 )
@@ -789,12 +789,16 @@ impl ConnectionTask {
                     .map_err(|_| Error::SendBlockingTask)?;
             }
             InternalMessage::BmmVerificationError(err) => {
-                let err: anyhow::Error = err;
-                tracing::error!("Error attempting BMM verification: {err:#}");
+                tracing::error!(
+                    "Error attempting BMM verification: {:#}",
+                    ErrorChain::new(&err)
+                );
             }
             InternalMessage::MainchainAncestorsError(err) => {
-                let err: anyhow::Error = err;
-                tracing::error!("Error fetching mainchain ancestors: {err:#}");
+                tracing::error!(
+                    "Error fetching mainchain ancestors: {:#}",
+                    ErrorChain::new(&err)
+                );
             }
             InternalMessage::MainchainAncestors(peer_state_id)
             | InternalMessage::Headers(peer_state_id)
@@ -847,10 +851,10 @@ impl ConnectionTask {
                     serialized_response,
                     response_tx,
                 }) => {
-                    let network = ctxt.network;
+                    let magic_bytes = ctxt.magic_bytes;
                     self.mailbox_tx.send_response_spawner.spawn(async move {
                         Connection::send_serialized_response(
-                            network,
+                            magic_bytes,
                             response_tx,
                             &serialized_response,
                         )
