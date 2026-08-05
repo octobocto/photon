@@ -4757,7 +4757,6 @@ dependencies = [
  "borsh",
  "byteorder",
  "bytes",
- "clap",
  "educe 0.6.0",
  "error-fatality",
  "fallible-iterator",
@@ -4769,27 +4768,22 @@ dependencies = [
  "hex",
  "hybrid-array",
  "jsonrpsee 0.25.1",
- "merkle-cbt",
  "nonempty 0.11.0",
  "parking_lot",
+ "photon_types",
  "prost",
  "prost-build",
  "prost-types",
  "protox",
  "quinn",
  "rand 0.8.6",
- "rand_core 0.6.4",
  "rayon",
  "rcgen",
  "rustls",
- "rustreexo",
  "semver",
  "serde",
  "serde_json",
- "serde_with",
- "smallvec",
  "sneed",
- "strum 0.27.2",
  "temp-dir",
  "thiserror 2.0.19",
  "tiny-bip39",
@@ -4801,7 +4795,6 @@ dependencies = [
  "tonic-prost-build",
  "tracing",
  "transitive",
- "utoipa",
 ]
 
 [[package]]
@@ -4875,7 +4868,7 @@ dependencies = [
  "bitcoin",
  "jsonrpsee 0.25.1",
  "l2l-openapi",
- "photon",
+ "photon_types",
  "serde",
  "serde_json",
  "utoipa",
@@ -4902,6 +4895,33 @@ dependencies = [
  "tracing",
  "tracing-indicatif",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "photon_types"
+version = "0.17.0"
+dependencies = [
+ "anyhow",
+ "bitcoin",
+ "blake3",
+ "borsh",
+ "clap",
+ "fips205",
+ "hashlink 0.12.1",
+ "heed",
+ "hex",
+ "merkle-cbt",
+ "rand_core 0.6.4",
+ "rayon",
+ "rustreexo",
+ "semver",
+ "serde",
+ "serde_with",
+ "smallvec",
+ "strum 0.27.2",
+ "thiserror 2.0.19",
+ "tracing",
+ "utoipa",
 ]
 
 [[package]]
@@ -5135,7 +5155,7 @@ version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "343d3bd7056eda839b03204e68deff7d1b13aba7af2b2fd16890697274262ee7"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "itertools 0.14.0",
  "log",
  "multimap",
@@ -6163,9 +6183,9 @@ dependencies = [
 
 [[package]]
 name = "sha3"
-version = "0.10.8"
+version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
+checksum = "77fd7028345d415a4034cf8777cd4f8ab1851274233b45f84e3d955502d93874"
 dependencies = [
  "digest",
  "keccak",
@@ -6192,7 +6212,7 @@ version = "1.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
 dependencies = [
- "errno 0.2.8",
+ "errno 0.3.14",
  "libc",
 ]
 
@@ -7774,7 +7794,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
