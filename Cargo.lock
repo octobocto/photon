@@ -4747,7 +4747,7 @@ dependencies = [
 
 [[package]]
 name = "photon"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "async-lock",
@@ -4806,7 +4806,7 @@ dependencies = [
 
 [[package]]
 name = "photon_app"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -4848,7 +4848,7 @@ dependencies = [
 
 [[package]]
 name = "photon_app_cli"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "bitcoin",
@@ -4870,7 +4870,7 @@ dependencies = [
 
 [[package]]
 name = "photon_app_rpc_api"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "bitcoin",
  "jsonrpsee 0.25.1",
@@ -4883,7 +4883,7 @@ dependencies = [
 
 [[package]]
 name = "photon_integration_tests"
-version = "0.16.1"
+version = "0.17.0"
 dependencies = [
  "anyhow",
  "bip300301_enforcer_integration_tests",
