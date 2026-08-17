@@ -10,7 +10,9 @@ use photon::types::{
     Address, Pointed, PointedOutput, SpentOutput, Txid, WithdrawalBundle,
     net::Peer, wallet::Balance,
 };
-use photon_app_rpc_api::{GetTransactionResponse, RpcServer};
+use photon_app_rpc_api::{
+    GetBlockTemplateResponse, GetTransactionResponse, RpcServer,
+};
 use tower_http::{
     cors::CorsLayer,
     request_id::{
@@ -109,6 +111,25 @@ impl RpcServer for RpcServerImpl {
         Ok(txid)
     }
 
+    async fn connect_block(
+        &self,
+        block: photon::types::Block,
+        main_block_hash: bitcoin::BlockHash,
+    ) -> RpcResult<bool> {
+        self.app
+            .local_pool
+            .spawn_pinned({
+                let app = self.app.clone();
+                move || async move {
+                    app.connect_block(block, main_block_hash)
+                        .await
+                        .map_err(custom_err)
+                }
+            })
+            .await
+            .unwrap()
+    }
+
     async fn connect_peer(&self, addr: SocketAddr) -> RpcResult<()> {
         self.app.node.connect_peer(addr).map_err(custom_err)
     }
@@ -151,6 +172,28 @@ impl RpcServer for RpcServerImpl {
         let body = self.app.node.get_body(block_hash).map_err(custom_err)?;
         let block = photon::types::Block { header, body };
         Ok(Some(block))
+    }
+
+    async fn get_block_template(&self) -> RpcResult<GetBlockTemplateResponse> {
+        let template = self
+            .app
+            .local_pool
+            .spawn_pinned({
+                let app = self.app.clone();
+                move || async move {
+                    app.get_block_template().await.map_err(custom_err)
+                }
+            })
+            .await
+            .unwrap()?;
+        Ok(GetBlockTemplateResponse {
+            critical_hash: template.header.hash(),
+            block: photon::types::Block {
+                header: template.header,
+                body: template.body,
+            },
+            fees_sats: template.fees.to_sat(),
+        })
     }
 
     async fn get_best_sidechain_block_hash(

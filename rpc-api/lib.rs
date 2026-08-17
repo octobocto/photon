@@ -5,7 +5,7 @@ use std::{collections::HashSet, net::SocketAddr};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use l2l_openapi::open_api;
 use photon_types::{
-    Address, Authorized, BlockHash, MerkleRoot, OutPoint, Output,
+    Address, Authorized, Block, BlockHash, MerkleRoot, OutPoint, Output,
     OutputContent, Pointed, PointedOutput, SpentOutput, Transaction, Txid,
     WithdrawalBundle, net::Peer, schema as photon_schema, wallet::Balance,
 };
@@ -13,6 +13,17 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 mod schema;
+
+#[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
+pub struct GetBlockTemplateResponse {
+    /// Block hash to commit to in a BMM request
+    pub critical_hash: BlockHash,
+    /// Block to pass to `connect_block` once its BMM request is included in a
+    /// mainchain block
+    pub block: Block,
+    /// Fees collected by the transactions in the block, in sats
+    pub fees_sats: u64,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 pub struct GetTransactionResponse {
@@ -32,6 +43,19 @@ pub trait Rpc {
     #[open_api_method(output_schema(ToSchema))]
     #[method(name = "balance")]
     async fn balance(&self) -> RpcResult<Balance>;
+
+    /// Connect a block for which a BMM request was included in the specified
+    /// mainchain block. Returns `true` if it was accepted as the new tip.
+    #[open_api_method(output_schema(ToSchema))]
+    #[method(name = "connect_block")]
+    async fn connect_block(
+        &self,
+        block: Block,
+        #[open_api_method_arg(schema(
+            PartialSchema = "photon_schema::BitcoinBlockHash"
+        ))]
+        main_block_hash: bitcoin::BlockHash,
+    ) -> RpcResult<bool>;
 
     /// Connect to a peer
     #[open_api_method(output_schema(ToSchema))]
@@ -107,6 +131,13 @@ pub trait Rpc {
         &self,
         block_hash: photon_types::BlockHash,
     ) -> RpcResult<Option<photon_types::Block>>;
+
+    /// Assemble a block to blind merge mine, without requesting BMM for it.
+    /// The caller requests BMM for `critical_hash` itself, then passes the
+    /// block back to `connect_block`.
+    #[open_api_method(output_schema(ToSchema))]
+    #[method(name = "get_block_template")]
+    async fn get_block_template(&self) -> RpcResult<GetBlockTemplateResponse>;
 
     /// Get mainchain blocks that commit to a specified block hash
     #[open_api_method(output_schema(
