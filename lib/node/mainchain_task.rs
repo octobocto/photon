@@ -157,7 +157,7 @@ where
         })
     }
 
-    async fn run(mut self) -> Result<(), Error> {
+    async fn run_once(&mut self) -> Result<(), Error> {
         while let Some((request, response_tx)) = self.request_rx.next().await {
             match request {
                 Request::AncestorInfos(main_block_hash) => {
@@ -186,6 +186,24 @@ where
             }
         }
         Ok(())
+    }
+
+    /// Serve requests, and serve them again after an error. The mainchain node
+    /// can stop at any time, and the node must connect to it again.
+    async fn run(mut self) {
+        const RECONNECT_DELAY: Duration = Duration::from_secs(5);
+
+        loop {
+            match self.run_once().await {
+                Ok(()) => return,
+                Err(err) => tracing::error!(
+                    "Mainchain task error: {:#}",
+                    ErrorChain::new(&err)
+                ),
+            }
+            tokio::time::sleep(RECONNECT_DELAY).await;
+            tracing::info!("Mainchain task: connecting to the mainchain node");
+        }
     }
 }
 
@@ -220,14 +238,7 @@ impl MainchainTaskHandle {
             request_rx,
             response_tx,
         };
-        let task = spawn(async move {
-            if let Err(err) = task.run().await {
-                tracing::error!(
-                    "Mainchain task error: {:#}",
-                    ErrorChain::new(&err)
-                );
-            }
-        });
+        let task = spawn(task.run());
         let task_handle = MainchainTaskHandle {
             task: Arc::new(task),
             request_tx,
