@@ -5,9 +5,9 @@ use std::{collections::HashSet, net::SocketAddr};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use l2l_openapi::open_api;
 use photon_types::{
-    Address, Authorized, Block, BlockHash, BlockIndex, MerkleRoot, OutPoint,
-    Output, OutputContent, Pointed, PointedOutput, SpentOutput, Transaction,
-    Txid, WithdrawalBundle, net::Peer, schema as photon_schema,
+    Address, Authorized, Block, BlockHash, BlockIndex, MempoolTx, MerkleRoot,
+    OutPoint, Output, OutputContent, Pointed, PointedOutput, SpentOutput,
+    Transaction, Txid, WithdrawalBundle, net::Peer, schema as photon_schema,
     wallet::Balance,
 };
 use serde::{Deserialize, Serialize};
@@ -230,6 +230,10 @@ pub trait Rpc {
     async fn latest_failed_withdrawal_bundle_height(
         &self,
     ) -> RpcResult<Option<u32>>;
+
+    /// List the transactions the mempool holds, in no particular order.
+    #[method(name = "list_mempool")]
+    async fn list_mempool(&self) -> RpcResult<Vec<MempoolTx>>;
 
     /// List peers
     #[method(name = "list_peers")]
