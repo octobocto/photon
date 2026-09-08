@@ -12,9 +12,13 @@ use futures::{FutureExt, channel::mpsc::UnboundedSender, future::BoxFuture};
 use photon_app_rpc_api::RpcClient as _;
 
 use crate::{
+    block_index::block_index_trial,
     block_template::block_template_trial,
     ibd::ibd_trial,
+    list_mempool::list_mempool_trial,
+    receive_address::receive_address_trial,
     setup::{Init, PostSetup},
+    transfer_many::transfer_many_trial,
     unknown_withdrawal::unknown_withdrawal_trial,
     util::BinPaths,
 };
@@ -163,6 +167,11 @@ pub fn tests(
     failure_collector: TestFailureCollector,
 ) -> Vec<AsyncTrial<BoxFuture<'static, anyhow::Result<()>>>> {
     vec![
+        block_index_trial(
+            bin_paths.clone(),
+            file_registry.clone(),
+            failure_collector.clone(),
+        ),
         block_template_trial(
             bin_paths.clone(),
             file_registry.clone(),
@@ -174,6 +183,21 @@ pub fn tests(
             failure_collector.clone(),
         ),
         ibd_trial(
+            bin_paths.clone(),
+            file_registry.clone(),
+            failure_collector.clone(),
+        ),
+        list_mempool_trial(
+            bin_paths.clone(),
+            file_registry.clone(),
+            failure_collector.clone(),
+        ),
+        receive_address_trial(
+            bin_paths.clone(),
+            file_registry.clone(),
+            failure_collector.clone(),
+        ),
+        transfer_many_trial(
             bin_paths.clone(),
             file_registry.clone(),
             failure_collector.clone(),

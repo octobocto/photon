@@ -4,10 +4,14 @@ use bip300301_enforcer_integration_tests::util::{
 use clap::Parser;
 use tracing_subscriber::{filter as tracing_filter, layer::SubscriberExt};
 
+mod block_index;
 mod block_template;
 mod ibd;
 mod integration_test;
+mod list_mempool;
+mod receive_address;
 mod setup;
+mod transfer_many;
 mod unknown_withdrawal;
 mod util;
 

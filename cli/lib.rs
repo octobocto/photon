@@ -418,8 +418,6 @@ impl Cli {
 mod tests {
     use std::collections::BTreeMap;
 
-    use clap::Parser as _;
-
     use super::*;
 
     #[test]
