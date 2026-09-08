@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use http::HeaderMap;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder};
 
-use photon::types::{Address, Txid};
+use photon::types::{Address, Txid, wallet::TransferDests};
 use photon_app_rpc_api::RpcClient;
 use tracing_subscriber::layer::SubscriberExt as _;
 
@@ -48,6 +48,14 @@ pub enum Command {
         dest: Address,
         #[arg(long)]
         value_sats: u64,
+        #[arg(long)]
+        fee_sats: u64,
+    },
+    /// Create a tx that transfers funds to each address in a JSON map of
+    /// address to value in sats, such as `{"<address>": 1000}`
+    CreateTransferMany {
+        #[arg(value_parser = JsonParser::<TransferDests>::parse)]
+        dests: TransferDests,
         #[arg(long)]
         fee_sats: u64,
     },
@@ -212,6 +220,10 @@ where
             let txid = rpc_client
                 .create_transfer(dest, value_sats, fee_sats)
                 .await?;
+            format!("{txid}")
+        }
+        Command::CreateTransferMany { dests, fee_sats } => {
+            let txid = rpc_client.create_transfer_many(dests, fee_sats).await?;
             format!("{txid}")
         }
         Command::CreateWithdrawal {
@@ -399,5 +411,46 @@ impl Cli {
         let client = builder.build(self.rpc_url)?;
         let result = handle_command(&client, self.command).await?;
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use clap::Parser as _;
+
+    use super::*;
+
+    #[test]
+    fn parse_create_transfer_many() {
+        let address = Address([1u8; 20]);
+        let cli = Cli::parse_from([
+            "photon-cli",
+            "create-transfer-many",
+            &format!("{{\"{address}\": 1000}}"),
+            "--fee-sats",
+            "500",
+        ]);
+        let Command::CreateTransferMany { dests, fee_sats } = cli.command
+        else {
+            panic!("expected create-transfer-many");
+        };
+        assert_eq!(dests.0, BTreeMap::from([(address, 1000)]));
+        assert_eq!(fee_sats, 500);
+    }
+
+    // A repeated address must not silently drop one of the two payments.
+    #[test]
+    fn refuse_a_repeated_address() {
+        let address = Address([1u8; 20]);
+        let result = Cli::try_parse_from([
+            "photon-cli",
+            "create-transfer-many",
+            &format!("{{\"{address}\": 1000, \"{address}\": 5000}}"),
+            "--fee-sats",
+            "500",
+        ]);
+        assert!(result.is_err());
     }
 }

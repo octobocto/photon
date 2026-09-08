@@ -7,8 +7,10 @@ use l2l_openapi::open_api;
 use photon_types::{
     Address, Authorized, Block, BlockHash, BlockIndex, MempoolTx, MerkleRoot,
     OutPoint, Output, OutputContent, Pointed, PointedOutput, SpentOutput,
-    Transaction, Txid, WithdrawalBundle, net::Peer, schema as photon_schema,
-    wallet::Balance,
+    Transaction, Txid, WithdrawalBundle,
+    net::Peer,
+    schema as photon_schema,
+    wallet::{Balance, TransferDests},
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -85,6 +87,15 @@ pub trait Rpc {
         &self,
         dest: Address,
         value_sats: u64,
+        fee_sats: u64,
+    ) -> RpcResult<Txid>;
+
+    /// Create a tx that transfers funds to each address in `dests`,
+    /// which maps an address to a value in sats
+    #[method(name = "create_transfer_many")]
+    async fn create_transfer_many(
+        &self,
+        dests: TransferDests,
         fee_sats: u64,
     ) -> RpcResult<Txid>;
 
