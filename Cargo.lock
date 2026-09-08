@@ -4660,6 +4660,7 @@ dependencies = [
  "photon_app_cli",
  "photon_app_rpc_api",
  "poll-promise",
+ "reserve-port",
  "rustreexo",
  "serde",
  "shlex",
