@@ -5,9 +5,10 @@ use std::{collections::HashSet, net::SocketAddr};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use l2l_openapi::open_api;
 use photon_types::{
-    Address, Authorized, Block, BlockHash, MerkleRoot, OutPoint, Output,
-    OutputContent, Pointed, PointedOutput, SpentOutput, Transaction, Txid,
-    WithdrawalBundle, net::Peer, schema as photon_schema, wallet::Balance,
+    Address, Authorized, Block, BlockHash, BlockIndex, MerkleRoot, OutPoint,
+    Output, OutputContent, Pointed, PointedOutput, SpentOutput, Transaction,
+    Txid, WithdrawalBundle, net::Peer, schema as photon_schema,
+    wallet::Balance,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -131,6 +132,26 @@ pub trait Rpc {
         &self,
         block_hash: photon_types::BlockHash,
     ) -> RpcResult<Option<photon_types::Block>>;
+
+    /// Get the block hash at the specified height in the current chain,
+    /// if it exists
+    #[open_api_method(output_schema(
+        PartialSchema = "schema::Optional<photon_types::BlockHash>"
+    ))]
+    #[method(name = "get_block_hash")]
+    async fn get_block_hash(
+        &self,
+        height: u32,
+    ) -> RpcResult<Option<photon_types::BlockHash>>;
+
+    /// Get the transaction ids, sizes and encodings of a block, with the
+    /// mainchain deposits and withdrawal bundle spends it applied
+    #[open_api_method(output_schema(ToSchema))]
+    #[method(name = "get_block_index")]
+    async fn get_block_index(
+        &self,
+        block_hash: photon_types::BlockHash,
+    ) -> RpcResult<BlockIndex>;
 
     /// Assemble a block to blind merge mine, without requesting BMM for it.
     /// The caller requests BMM for `critical_hash` itself, then passes the
