@@ -129,5 +129,11 @@ branch = "log-rotation-size"
 [profile.dev.package.fips205]
 opt-level = 3
 
+[profile.test.package.keccak]
+opt-level = 3
+
+[profile.test.package.sha3]
+opt-level = 3
+
 [profile.release]
 # lto = "fat"
