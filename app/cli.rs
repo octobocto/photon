@@ -141,6 +141,11 @@ pub(super) struct Cli {
     /// Manually provide the network magic bytes
     #[arg(long, value_parser = parse_network_magic)]
     network_magic: Option<[u8; 4]>,
+    /// Additional peers to dial on startup, as `host:port`. May be given
+    /// more than once, and is dialed in addition to the network's built-in
+    /// seed peers.
+    #[arg(long = "add-peer")]
+    peers: Vec<photon::types::net::PeerAddress>,
     /// Socket address to host the RPC server
     #[arg(default_value_t = DEFAULT_RPC_ADDR, long, short)]
     rpc_addr: SocketAddr,
@@ -159,6 +164,7 @@ pub struct Config {
     pub net_addr: SocketAddr,
     pub network: Network,
     pub network_magic_override: Option<photon::net::peer_message::MagicBytes>,
+    pub peers: Vec<photon::types::net::PeerAddress>,
     pub rpc_addr: SocketAddr,
 }
 
@@ -196,6 +202,7 @@ impl Cli {
             net_addr: self.net_addr,
             network: self.network,
             network_magic_override: self.network_magic,
+            peers: self.peers,
             rpc_addr: self.rpc_addr,
         })
     }

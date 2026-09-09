@@ -8,7 +8,7 @@ use jsonrpsee::{
 };
 use photon::types::{
     Address, Pointed, PointedOutput, SpentOutput, Txid, WithdrawalBundle,
-    net::Peer,
+    net::{Peer, PeerAddress},
     wallet::{Balance, TransferDests},
 };
 use photon_app_rpc_api::{
@@ -159,8 +159,14 @@ impl RpcServer for RpcServerImpl {
             .unwrap()
     }
 
-    async fn connect_peer(&self, addr: SocketAddr) -> RpcResult<()> {
-        self.app.node.connect_peer(addr).map_err(custom_err)
+    async fn connect_peer(&self, addr: PeerAddress) -> RpcResult<()> {
+        let resolved_addr = photon::net::resolve_peer_address(addr)
+            .await
+            .map_err(custom_err)?;
+        self.app
+            .node
+            .connect_peer(resolved_addr)
+            .map_err(custom_err)
     }
 
     async fn format_deposit_address(
@@ -171,7 +177,7 @@ impl RpcServer for RpcServerImpl {
         Ok(deposit_address)
     }
 
-    async fn forget_peer(&self, addr: SocketAddr) -> RpcResult<()> {
+    async fn forget_peer(&self, addr: PeerAddress) -> RpcResult<()> {
         match self.app.node.forget_peer(&addr) {
             Ok(_) => Ok(()),
             Err(err) => Err(custom_err(err)),

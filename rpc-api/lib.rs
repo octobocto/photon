@@ -1,6 +1,6 @@
 //! RPC API
 
-use std::{collections::HashSet, net::SocketAddr};
+use std::collections::HashSet;
 
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use l2l_openapi::open_api;
@@ -8,7 +8,7 @@ use photon_types::{
     Address, Authorized, Block, BlockHash, BlockIndex, MempoolTx, MerkleRoot,
     OutPoint, Output, OutputContent, Pointed, PointedOutput, SpentOutput,
     Transaction, Txid, WithdrawalBundle,
-    net::Peer,
+    net::{Peer, PeerAddress},
     schema as photon_schema,
     wallet::{Balance, TransferDests},
 };
@@ -63,13 +63,7 @@ pub trait Rpc {
     /// Connect to a peer
     #[open_api_method(output_schema(ToSchema))]
     #[method(name = "connect_peer")]
-    async fn connect_peer(
-        &self,
-        #[open_api_method_arg(schema(
-            PartialSchema = "photon_schema::SocketAddr"
-        ))]
-        addr: SocketAddr,
-    ) -> RpcResult<()>;
+    async fn connect_peer(&self, addr: PeerAddress) -> RpcResult<()>;
 
     /// Deposit to address
     #[open_api_method(output_schema(PartialSchema = "schema::BitcoinTxid"))]
@@ -125,13 +119,7 @@ pub trait Rpc {
     /// Delete peer from known_peers DB.
     /// Connections to the peer are not terminated.
     #[method(name = "forget_peer")]
-    async fn forget_peer(
-        &self,
-        #[open_api_method_arg(schema(
-            PartialSchema = "photon_schema::SocketAddr"
-        ))]
-        addr: SocketAddr,
-    ) -> RpcResult<()>;
+    async fn forget_peer(&self, addr: PeerAddress) -> RpcResult<()>;
 
     /// Generate a mnemonic seed phrase
     #[method(name = "generate_mnemonic")]

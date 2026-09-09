@@ -10,6 +10,7 @@ fips205 = { workspace = true, features = ["slh_dsa_shake_256s"] }
 hashlink = { workspace = true, features = ["serde_impl"] }
 heed = { workspace = true, optional = true }
 merkle-cbt = { workspace = true }
+nonempty = { workspace = true }
 rand_core = { workspace = true }
 rayon = { workspace = true }
 rustreexo = { workspace = true, features = ["with-serde"] }
@@ -19,6 +20,7 @@ serde_with = { workspace = true, features = ["hex"] }
 strum = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+url = { workspace = true, features = ["serde"] }
 utoipa = { workspace = true, features = ["macros", "non_strict_integers"] }
 
 [dev-dependencies]
