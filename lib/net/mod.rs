@@ -672,11 +672,30 @@ impl Net {
 
 #[cfg(test)]
 mod test {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
     use heed::types::{SerdeBincode, Unit};
     use sneed::DatabaseUnique;
 
-    use super::{ensure_seed_peers, seed_peer_addrs};
-    use crate::types::Network;
+    use super::{ensure_seed_peers, resolve_peer_address, seed_peer_addrs};
+    use crate::types::{Network, net::PeerAddress};
+
+    /// A seed names a host and a port, and the resolver keeps both.
+    #[tokio::test]
+    async fn a_seed_name_resolves_with_its_port() -> anyhow::Result<()> {
+        let peer_addr: PeerAddress = "localhost:4099".parse()?;
+        let dns_resolver =
+            hickory_resolver::Resolver::builder_tokio()?.build()?;
+        let resolved = resolve_peer_address(&dns_resolver, peer_addr).await?;
+        assert_eq!(resolved.port(), 4099);
+        assert!(
+            resolved
+                .ip_addrs()
+                .any(|addr| addr == IpAddr::V4(Ipv4Addr::LOCALHOST)
+                    || addr == IpAddr::V6(Ipv6Addr::LOCALHOST))
+        );
+        Ok(())
+    }
 
     /// Every seed reaches a peer table that already exists, and a second call
     /// writes the same set.

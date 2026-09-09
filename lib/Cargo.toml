@@ -62,6 +62,7 @@ url = { workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 temp-dir = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [features]
 clap = ["photon_types/clap"]
