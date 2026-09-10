@@ -268,6 +268,7 @@ pub mod mainchain {
     use super::common::{ConsensusHex, ReverseHex};
     use crate::types::{M6id, Output, OutputContent, THIS_SIDECHAIN};
 
+    #[allow(clippy::double_must_use)]
     pub mod generated {
         tonic::include_proto!("cusf.mainchain.v1");
     }

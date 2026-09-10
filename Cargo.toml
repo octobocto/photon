@@ -11,7 +11,7 @@ authors = [
 edition = "2024"
 license-file = "LICENSE.txt"
 publish = false
-version = "0.17.6"
+version = "0.17.7"
 
 [workspace.dependencies]
 anyhow = "1.0.72"
@@ -127,6 +127,12 @@ git = "https://github.com/torkelrogstad/tokio-tracing.git"
 branch = "log-rotation-size"
 
 [profile.dev.package.fips205]
+opt-level = 3
+
+[profile.test.package.keccak]
+opt-level = 3
+
+[profile.test.package.sha3]
 opt-level = 3
 
 [profile.release]
