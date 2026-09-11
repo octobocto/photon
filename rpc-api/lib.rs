@@ -9,7 +9,7 @@ mod schema;
 #[allow(clippy::double_must_use)]
 mod rpc;
 
-pub use rpc::{RpcClient, RpcDoc, RpcServer};
+pub use rpc::{node, open_api, wallet};
 
 #[derive(Clone, Debug, Deserialize, Serialize, ToSchema)]
 pub struct GetBlockTemplateResponse {

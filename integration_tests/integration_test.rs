@@ -9,7 +9,7 @@ use bip300301_enforcer_integration_tests::{
 };
 use bip300301_enforcer_lib::bins::CommandExt;
 use futures::{FutureExt, channel::mpsc::UnboundedSender, future::BoxFuture};
-use photon_app_rpc_api::RpcClient as _;
+use photon_app_rpc_api::node::RpcClient as _;
 
 use crate::{
     block_index::block_index_trial,

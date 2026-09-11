@@ -12,7 +12,7 @@ use bip300301_enforcer_integration_tests::{
 use futures::{
     FutureExt as _, StreamExt as _, channel::mpsc, future::BoxFuture,
 };
-use photon_app_rpc_api::RpcClient as _;
+use photon_app_rpc_api::{node::RpcClient as _, wallet::RpcClient as _};
 use tokio::time::sleep;
 use tracing::Instrument as _;
 
