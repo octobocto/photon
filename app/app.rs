@@ -5,6 +5,7 @@ use futures::{StreamExt, TryFutureExt};
 use parking_lot::RwLock;
 use photon::{
     miner::{self, Miner},
+    net,
     node::{self, Node},
     types::{
         self, Address, FilledTransaction, OutPoint, Output, Transaction,
@@ -295,13 +296,17 @@ impl App {
         let local_pool = LocalPoolHandle::new(1);
 
         tracing::debug!("Instantiating node struct");
+        let net_config = net::Config {
+            add_peers: config.add_peers.clone(),
+            bind_addr: config.net_addr,
+            magic_bytes_override: config.network_magic_override,
+            network: config.network,
+        };
         let node = Node::new(
             &config.datadir,
-            config.net_addr,
+            net_config,
             cusf_mainchain,
             cusf_mainchain_wallet,
-            config.network_magic_override,
-            config.network,
             &runtime,
         )?;
         let utxos = {

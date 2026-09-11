@@ -16,14 +16,14 @@ use tonic::transport::Channel;
 use crate::{
     archive::Archive,
     mempool::{self, MemPool},
-    net::Net,
+    net::{self, DialSeedsHandle, Net},
     state::State,
     types::{
         Accumulator, Address, AmountOverflowError, AmountUnderflowError,
         Authorized, AuthorizedTransaction, BlockHash, BlockIndexEvents,
         BmmResult, Body, FilledTransaction, GetValue, Header,
-        MainchainSyncProgress, Network, OutPoint, OutPointKey, Output,
-        SpentOutput, Tip, Transaction, Txid, WithdrawalBundle,
+        MainchainSyncProgress, OutPoint, OutPointKey, Output, SpentOutput, Tip,
+        Transaction, Txid, WithdrawalBundle,
         net::Peer,
         proto::{self, mainchain},
     },
@@ -43,6 +43,7 @@ pub struct Node<MainchainTransport = Channel> {
     cusf_mainchain: mainchain::ValidatorClient<MainchainTransport>,
     cusf_mainchain_wallet:
         Option<Arc<Mutex<mainchain::WalletClient<MainchainTransport>>>>,
+    _dial_seeds: Arc<DialSeedsHandle>,
     env: sneed::Env<heed::WithoutTls>,
     mainchain_task: MainchainTaskHandle,
     mempool: MemPool,
@@ -57,13 +58,11 @@ where
 {
     pub fn new(
         datadir: &Path,
-        bind_addr: SocketAddr,
+        net_config: net::Config,
         cusf_mainchain: mainchain::ValidatorClient<MainchainTransport>,
         cusf_mainchain_wallet: Option<
             mainchain::WalletClient<MainchainTransport>,
         >,
-        magic_bytes_override: Option<crate::net::peer_message::MagicBytes>,
-        network: Network,
         runtime: &tokio::runtime::Runtime,
     ) -> Result<Self, Error>
     where
@@ -121,13 +120,12 @@ where
                 archive.clone(),
                 cusf_mainchain.clone(),
             );
-        let (net, peer_info_rx) = Net::new(
+        let (net, peer_info_rx, dial_seeds) = Net::new(
+            runtime.handle(),
             &env,
             archive.clone(),
-            magic_bytes_override,
-            network,
             state.clone(),
-            bind_addr,
+            net_config,
         )?;
         let net_task = NetTaskHandle::new(
             runtime,
@@ -146,6 +144,7 @@ where
             archive,
             cusf_mainchain,
             cusf_mainchain_wallet,
+            _dial_seeds: Arc::new(dial_seeds),
             env,
             mainchain_task,
             mempool,
@@ -570,7 +569,7 @@ where
 
     pub fn connect_peer(&self, addr: SocketAddr) -> Result<(), Error> {
         self.net
-            .connect_peer(self.env.clone(), addr)
+            .connect_peer(self.env.clone(), addr.into())
             .map_err(Error::from)
     }
 
