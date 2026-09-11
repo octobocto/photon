@@ -153,6 +153,9 @@ pub(super) struct Cli {
     /// Socket address to host the RPC server
     #[arg(default_value_t = DEFAULT_RPC_ADDR, long, short)]
     rpc_addr: SocketAddr,
+    /// Host name of the P2P server. Use this option one time for each name.
+    #[arg(long = "server-name")]
+    server_names: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -171,6 +174,7 @@ pub struct Config {
     pub network_magic_override: Option<photon::net::peer_message::MagicBytes>,
     pub private_rpc_addr: SocketAddr,
     pub rpc_addr: SocketAddr,
+    pub server_names: HashSet<String>,
 }
 
 impl Cli {
@@ -210,6 +214,7 @@ impl Cli {
             network_magic_override: self.network_magic,
             private_rpc_addr: self.private_rpc_addr,
             rpc_addr: self.rpc_addr,
+            server_names: HashSet::from_iter(self.server_names),
         })
     }
 }

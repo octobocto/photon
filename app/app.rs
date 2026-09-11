@@ -301,6 +301,7 @@ impl App {
             bind_addr: config.net_addr,
             magic_bytes_override: config.network_magic_override,
             network: config.network,
+            server_names: config.server_names.clone(),
         };
         let node = Node::new(
             &config.datadir,
