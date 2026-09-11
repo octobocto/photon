@@ -120,6 +120,11 @@ pub enum Command {
     GetWalletUtxos,
     /// Get the current block count
     GetBlockcount,
+    /// Invalidate a block, potentially re-orging to a valid ancestor of the
+    /// current tip.
+    InvalidateBlock {
+        block_hash: photon::types::BlockHash,
+    },
     /// Get the height of the latest failed withdrawal bundle
     LatestFailedWithdrawalBundleHeight,
     /// List the transactions the mempool holds
@@ -313,6 +318,10 @@ where
         Command::GetBlockcount => {
             let blockcount = rpc_client.getblockcount().await?;
             format!("{blockcount}")
+        }
+        Command::InvalidateBlock { block_hash } => {
+            let () = rpc_client.invalidate_block(block_hash).await?;
+            String::default()
         }
         Command::LatestFailedWithdrawalBundleHeight => {
             let height =
