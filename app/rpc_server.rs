@@ -416,6 +416,12 @@ impl RpcServer for RpcServerImpl {
         Ok(res)
     }
 
+    async fn mainchain_sync_progress(
+        &self,
+    ) -> RpcResult<photon::types::MainchainSyncProgress> {
+        Ok(self.app.node.mainchain_sync_progress())
+    }
+
     async fn mine(&self, fee: Option<u64>) -> RpcResult<()> {
         let fee = fee.map(bitcoin::Amount::from_sat);
         self.app

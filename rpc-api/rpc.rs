@@ -3,9 +3,9 @@ use std::{collections::HashSet, net::SocketAddr};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use l2l_openapi::open_api;
 use photon_types::{
-    Address, Authorized, Block, BlockIndex, MempoolTx, MerkleRoot, OutPoint,
-    Output, OutputContent, Pointed, PointedOutput, SpentOutput, Transaction,
-    Txid, WithdrawalBundle,
+    Address, Authorized, Block, BlockIndex, MainchainSyncProgress, MempoolTx,
+    MerkleRoot, OutPoint, Output, OutputContent, Pointed, PointedOutput,
+    SpentOutput, Transaction, Txid, WithdrawalBundle,
     net::Peer,
     schema as photon_schema,
     wallet::{Balance, TransferDests},
@@ -231,6 +231,12 @@ pub trait Rpc {
     /// List all UTXOs
     #[method(name = "list_utxos")]
     async fn list_utxos(&self) -> RpcResult<Vec<PointedOutput>>;
+
+    /// Get the progress of the startup sync with the mainchain
+    #[open_api_method(output_schema(ToSchema))]
+    #[method(name = "mainchain_sync_progress")]
+    async fn mainchain_sync_progress(&self)
+    -> RpcResult<MainchainSyncProgress>;
 
     /// Attempt to mine a sidechain block
     #[open_api_method(output_schema(ToSchema))]
