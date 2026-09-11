@@ -38,7 +38,6 @@ heed = "0.22.0"
 http = "1.2.0"
 human-size = "0.4.3"
 hybrid-array = "0.4.5"
-include_path = "0.1.1"
 jsonrpsee = { version = "0.26.0", features = ["tracing"] }
 libtest-mimic = "0.8.1"
 merkle-cbt = "0.3.2"
